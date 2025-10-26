@@ -49,6 +49,8 @@ export default function MindMapRush() {
   const [surpriseWords, setSurpriseWords] = useState([]);
   const [actionCluster, setActionCluster] = useState('');
   const [courseConcept, setCourseConcept] = useState('');
+  const [wordsNeeded, setWordsNeeded] = useState(0);
+  const [wordsCollected, setWordsCollected] = useState([]);
   const inputRef = useRef(null);
 
   useEffect(() => {
@@ -67,6 +69,7 @@ export default function MindMapRush() {
       depth: 0,
       isSurprise: false
     };
+    const numWords = Math.floor(Math.random() * 3) + 3;
     setNodes([rootNode]);
     setCurrentWord(randomWord);
     setCurrentNodeId('root');
@@ -78,6 +81,8 @@ export default function MindMapRush() {
     setSurpriseWords([]);
     setActionCluster('');
     setCourseConcept('');
+    setWordsNeeded(numWords);
+    setWordsCollected([]);
   };
 
   useEffect(() => {
@@ -115,12 +120,18 @@ export default function MindMapRush() {
 
     if (unfinishedNodes.length > 0) {
       const nextNode = unfinishedNodes[0];
+      const numWords = Math.floor(Math.random() * 3) + 3;
       setCurrentWord(nextNode.word);
       setCurrentNodeId(nextNode.id);
+      setWordsNeeded(numWords);
+      setWordsCollected([]);
     } else {
       const randomNode = nodes[Math.floor(Math.random() * nodes.length)];
+      const numWords = Math.floor(Math.random() * 3) + 3;
       setCurrentWord(randomNode.word);
       setCurrentNodeId(randomNode.id);
+      setWordsNeeded(numWords);
+      setWordsCollected([]);
     }
     
     setSkipCount(skipCount + 1);
@@ -130,45 +141,62 @@ export default function MindMapRush() {
   const handleSubmit = () => {
     if (!inputValue.trim() || !currentNodeId) return;
 
-    const words = inputValue.split(',').map(w => w.trim()).filter(w => w.length > 0);
-    if (words.length < 3 || words.length > 5) {
-      alert('Please enter 3-5 words separated by commas');
-      return;
-    }
-
-    const parentNode = nodes.find(n => n.id === currentNodeId);
-    if (!parentNode) return;
-
-    const childrenCount = words.length;
-    const newNodes = words.map((word, index) => {
-      const angle = (index / childrenCount) * Math.PI * 0.8 - Math.PI * 0.4;
-      const distance = 15;
-      return {
-        id: `node-${Date.now()}-${index}`,
-        word,
-        x: Math.max(5, Math.min(95, parentNode.x + Math.sin(angle) * distance)),
-        y: Math.max(5, Math.min(95, parentNode.y + Math.cos(angle) * distance)),
-        parentId: currentNodeId,
-        depth: parentNode.depth + 1,
-        isSurprise: false
-      };
-    });
-
-    const updatedNodes = [...nodes, ...newNodes];
-    setNodes(updatedNodes);
-
-    const unfinishedNodes = updatedNodes.filter(n => {
-      const children = updatedNodes.filter(c => c.parentId === n.id);
-      return children.length === 0 && newNodes.some(nn => nn.id === n.id);
-    });
-
-    if (unfinishedNodes.length > 0) {
-      const nextNode = unfinishedNodes[0];
-      setCurrentWord(nextNode.word);
-      setCurrentNodeId(nextNode.id);
-    }
-
+    const word = inputValue.trim();
+    const updatedCollected = [...wordsCollected, word];
+    setWordsCollected(updatedCollected);
     setInputValue('');
+
+    if (updatedCollected.length === wordsNeeded) {
+      const parentNode = nodes.find(n => n.id === currentNodeId);
+      if (!parentNode) return;
+
+      const childrenCount = updatedCollected.length;
+      const newNodes = updatedCollected.map((w, index) => {
+        const angle = (index / childrenCount) * Math.PI * 0.8 - Math.PI * 0.4;
+        const distance = 15;
+        return {
+          id: `node-${Date.now()}-${index}`,
+          word: w,
+          x: Math.max(5, Math.min(95, parentNode.x + Math.sin(angle) * distance)),
+          y: Math.max(5, Math.min(95, parentNode.y + Math.cos(angle) * distance)),
+          parentId: currentNodeId,
+          depth: parentNode.depth + 1,
+          isSurprise: false
+        };
+      });
+
+      const updatedNodes = [...nodes, ...newNodes];
+      setNodes(updatedNodes);
+
+      const currentDepth = parentNode.depth + 1;
+      const sameDepthUnfinished = updatedNodes.filter(n => {
+        const children = updatedNodes.filter(c => c.parentId === n.id);
+        return children.length === 0 && n.depth === currentDepth;
+      });
+
+      if (sameDepthUnfinished.length > 0) {
+        const nextNode = sameDepthUnfinished[0];
+        const numWords = Math.floor(Math.random() * 3) + 3;
+        setCurrentWord(nextNode.word);
+        setCurrentNodeId(nextNode.id);
+        setWordsNeeded(numWords);
+        setWordsCollected([]);
+      } else {
+        const allUnfinished = updatedNodes.filter(n => {
+          const children = updatedNodes.filter(c => c.parentId === n.id);
+          return children.length === 0;
+        });
+        
+        if (allUnfinished.length > 0) {
+          const nextNode = allUnfinished[0];
+          const numWords = Math.floor(Math.random() * 3) + 3;
+          setCurrentWord(nextNode.word);
+          setCurrentNodeId(nextNode.id);
+          setWordsNeeded(numWords);
+          setWordsCollected([]);
+        }
+      }
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -222,9 +250,9 @@ export default function MindMapRush() {
               <strong>Phase 1: IDEATE (60 seconds)</strong>
               <ul style={styles.list}>
                 <li>Get a random word to spark your thinking</li>
-                <li>Type 3-5 related words, press Enter</li>
-                <li>Keep building - ESC to skip</li>
-                <li>Let your gut reactions flow!</li>
+                <li>Enter ONE word at a time, 3-5 times (randomly chosen)</li>
+                <li>Press Enter after each word</li>
+                <li>ESC to skip - builds layer by layer</li>
               </ul>
             </div>
             <div style={styles.phase}>
@@ -387,11 +415,11 @@ export default function MindMapRush() {
   if (reflectionMode) {
     return (
       <div style={styles.container}>
-        <div style={styles.reflectionPanel}>
+        <div style={{...styles.reflectionPanel, top: '20px', transform: 'translate(-50%, 0)'}}>
           {reflectionStep === 1 && (
             <>
               <h2 style={styles.reflectionTitle}>Step 1: What Surprises You?</h2>
-              <p style={styles.reflectionSubtitle}>Click 3 words on your map that surprise you or feel unexpected</p>
+              <p style={styles.reflectionSubtitle}>Click 3 words on your map below</p>
               <div style={styles.selectedWords}>
                 {surpriseWords.map(id => {
                   const node = nodes.find(n => n.id === id);
@@ -419,11 +447,11 @@ export default function MindMapRush() {
           {reflectionStep === 2 && (
             <>
               <h2 style={styles.reflectionTitle}>Step 2: Define an Action Step</h2>
-              <p style={styles.reflectionSubtitle}>Look at your map. What's one concrete action you could take?</p>
+              <p style={styles.reflectionSubtitle}>What's one concrete action you could take?</p>
               <textarea
                 value={actionCluster}
                 onChange={(e) => setActionCluster(e.target.value)}
-                placeholder="Example: 'Schedule coffee with a mentor' or 'Research summer internships in my passion area'"
+                placeholder="Example: 'Schedule coffee with a mentor' or 'Research internships'"
                 style={styles.textarea}
               />
               <button 
@@ -442,7 +470,7 @@ export default function MindMapRush() {
           {reflectionStep === 3 && (
             <>
               <h2 style={styles.reflectionTitle}>Step 3: Connect to Life Design</h2>
-              <p style={styles.reflectionSubtitle}>Which course concept does this map relate to most?</p>
+              <p style={styles.reflectionSubtitle}>Which course concept does this relate to?</p>
               <div style={styles.conceptButtons}>
                 {['Ideate', 'Prototype', 'Test', 'Reflect', 'Integrate'].map(concept => (
                   <button
@@ -474,7 +502,7 @@ export default function MindMapRush() {
           )}
         </div>
         
-        <svg style={{...styles.svg, pointerEvents: reflectionStep === 1 ? 'auto' : 'none'}}>
+        <svg style={{...styles.svg, pointerEvents: reflectionStep === 1 ? 'auto' : 'none', marginTop: '200px'}}>
           {nodes.map(node => {
             if (!node.parentId) return null;
             const parent = nodes.find(n => n.id === node.parentId);
@@ -552,6 +580,30 @@ export default function MindMapRush() {
         <div style={styles.currentWord}>{currentWord}</div>
       </div>
 
+      <div style={styles.progressIndicator}>
+        <p style={{margin: '0 0 10px 0', color: '#64748b', fontSize: '14px'}}>
+          Enter {wordsNeeded} word{wordsNeeded !== 1 ? 's' : ''} - {wordsCollected.length} of {wordsNeeded} entered
+        </p>
+        <div style={styles.progressDots}>
+          {[...Array(wordsNeeded)].map((_, i) => (
+            <div 
+              key={i} 
+              style={{
+                ...styles.progressDot,
+                backgroundColor: i < wordsCollected.length ? '#8b5cf6' : '#e2e8f0'
+              }}
+            />
+          ))}
+        </div>
+        {wordsCollected.length > 0 && (
+          <div style={styles.collectedWords}>
+            {wordsCollected.map((word, i) => (
+              <span key={i} style={styles.collectedWord}>{word}</span>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div style={styles.inputContainer}>
         <input
           ref={inputRef}
@@ -559,11 +611,11 @@ export default function MindMapRush() {
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={handleKeyPress}
-          placeholder="Type 3-5 related words (comma-separated)..."
+          placeholder="Type ONE word and press Enter..."
           style={styles.input}
         />
         <button onClick={handleSubmit} style={styles.submitButton}>
-          Add Words →
+          Add Word →
         </button>
       </div>
 
@@ -629,7 +681,8 @@ const styles = {
     alignItems: 'center',
     justifyContent: 'center',
     fontFamily: 'system-ui, -apple-system, sans-serif',
-    position: 'relative'
+    position: 'relative',
+    overflow: 'hidden'
   },
   startScreen: {
     textAlign: 'center',
@@ -656,14 +709,12 @@ const styles = {
   reflectionPanel: {
     textAlign: 'center',
     maxWidth: '600px',
-    padding: '40px',
+    padding: '30px',
     backgroundColor: 'white',
     borderRadius: '20px',
     boxShadow: '0 20px 60px rgba(0,0,0,0.1)',
     position: 'absolute',
-    top: '50%',
     left: '50%',
-    transform: 'translate(-50%, -50%)',
     zIndex: 10
   },
   title: {
@@ -740,6 +791,38 @@ const styles = {
     borderRadius: '15px',
     boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
     display: 'inline-block'
+  },
+  progressIndicator: {
+    textAlign: 'center',
+    marginBottom: '15px',
+    zIndex: 5
+  },
+  progressDots: {
+    display: 'flex',
+    gap: '8px',
+    justifyContent: 'center',
+    marginBottom: '10px'
+  },
+  progressDot: {
+    width: '12px',
+    height: '12px',
+    borderRadius: '50%',
+    transition: 'background-color 0.3s ease'
+  },
+  collectedWords: {
+    display: 'flex',
+    gap: '8px',
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    marginTop: '10px'
+  },
+  collectedWord: {
+    padding: '4px 12px',
+    backgroundColor: '#8b5cf6',
+    color: 'white',
+    borderRadius: '6px',
+    fontSize: '14px',
+    fontWeight: '500'
   },
   inputContainer: {
     display: 'flex',
